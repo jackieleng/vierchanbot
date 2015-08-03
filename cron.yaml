@@ -1,0 +1,5 @@
+cron:
+- description: update 4chan api cache
+  url: /tasks/update_cache
+  schedule: every 1 hours from 08:00 to 02:00
+  timezone: Europe/Amsterdam
