@@ -72,7 +72,12 @@ def update_cache():
 
     all_img_filenames = []
     for no in all_thread_nos:
-        response = urllib2.urlopen(api.posts_url(board, no))
+        try:
+            response = urllib2.urlopen(api.posts_url(board, no))
+        except urllib2.HTTPError:
+            logger.error("Could not open: %s", api.posts_url(board, no))
+            logger.warning(traceback.format_exc())
+            continue
         posts = json.load(response)['posts']  # a list of post objects
 
         # Note: not all posts contain images
@@ -130,10 +135,14 @@ def listen():
                 global LAST_4CHAN_API_CALL_TIME
                 now = time.time()
 
+                imgs = memcache.get('a:images')
+                if not imgs:
+                    logger.error("Cache empty for a:images")
+                    return "No images", 404
+
                 if now - LAST_4CHAN_API_CALL_TIME < 1:
                     api.send_message(chat_id, "pls be gentle on api")
                 else:
-                    imgs = memcache.get('a:images')
 
                     # 10 retries
                     for i in range(10):
