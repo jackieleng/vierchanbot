@@ -1,8 +1,8 @@
 ## Telegram bot for 4chan imageboard
 
-This bot will fetch a random image from 4chan using the /4chan command. Currently only
-supports only a few boards. Memcache is run to cache 4chan API data, and a cronjob is
-run periodically to update this cache. /help shows a list of other commands (when
+This bot will fetch a random image from 4chan using the `/4chan` command. Currently only
+supports a select few boards. Memcache is run to cache 4chan API data, and a cronjob is
+run periodically to update this cache. `/help` displays a list of other commands (when
 implemented).
 
 
