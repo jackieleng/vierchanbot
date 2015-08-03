@@ -86,7 +86,7 @@ def update_cache():
         all_img_filenames.extend(img_filenames)
         time.sleep(2)
     logger.info("Update finished. %s threads, %s img filenames",
-                len(all_thread_nos), len(img_filenames))
+                len(all_thread_nos), len(all_img_filenames))
     logger.info("Total time %s", time.time() - t0)
 
     memcache.set(key='a:images', value=all_img_filenames)
