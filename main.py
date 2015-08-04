@@ -55,11 +55,13 @@ def test():
 @app.route('/tasks/update_cache', methods=['GET'])
 def update_cache():
     """Periodic cache update."""
+    timeout = 60
+
     t0 = time.time()
 
     # get from https://a.4cdn.org/{board}/threads.json
     board = 'a'
-    response = urllib2.urlopen(api.threads_url(board))
+    response = urllib2.urlopen(api.threads_url(board), timeout=timeout)
     threads = json.load(response)  # response is file-like
     time.sleep(2)
 
@@ -73,10 +75,16 @@ def update_cache():
     all_img_filenames = []
     for no in all_thread_nos:
         try:
-            response = urllib2.urlopen(api.posts_url(board, no))
+            response = urllib2.urlopen(api.posts_url(board, no),
+                                       timeout=timeout)
         except urllib2.HTTPError:
-            logger.error("Could not open: %s", api.posts_url(board, no))
+            logger.warning("Could not open: %s", api.posts_url(board, no))
             logger.warning(traceback.format_exc())
+            continue
+        except Exception:
+            logger.error(
+                "Exception when opening: %s", api.posts_url(board, no))
+            logger.error(traceback.format_exc())
             continue
         posts = json.load(response)['posts']  # a list of post objects
 

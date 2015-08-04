@@ -10,7 +10,6 @@ handlers:
   # secure: always
 - url: /tasks/update_cache
   script: main.app
-  login: admin
 
 
 libraries:
