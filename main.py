@@ -11,6 +11,7 @@ from flask import request
 from google.appengine.api import memcache
 
 import api
+from api import PickledThing
 
 app = Flask(__name__)
 app.config['DEBUG'] = True
@@ -19,11 +20,16 @@ app.config['DEBUG'] = True
 # the App Engine WSGI application server.
 
 logger = logging.getLogger(__name__)
-# logger.setLevel(logging.DEBUG)  # this doesn't work, it's still INFO (maybe
-                                  # set by Flask?)
+# doesn't work, need to set --log_level=debug in dev server
+# e.g., in: Edit > Application Settings
+# logger.setLevel(logging.DEBUG)
+
+sakurafish_url = \
+    "https://data.archive.moe/board/a/image/1434/39/1434397984867.jpg"
 
 WEBHOOK = True
 LAST_4CHAN_API_CALL_TIME = 0  # global
+a_images_key = 'a:images'
 
 # Bot modes settings
 ECHO = False  # echo everything, global
@@ -47,15 +53,25 @@ def test():
     logger.info("Got these args %s", request.args)
     # add means only add when key doesn't exist
     #memcache.add(key='key', value=str(request.args), time=3600)
-    memcache.set(key='key2', value=str(request.args), time=3600)
-    return str(memcache.get('a:images'))
-    #return str(memcache.get('key2'))
+
+    pt = PickledThing.get_by_id(a_images_key)
+    if not pt:
+        logger.error("No entry in Datastore found for key: %s", a_images_key)
+        return "No images"
+    imgs = pt.thing
+
+    return str(imgs)
+    # return str(memcache.get('a:images'))
 
 
 @app.route('/tasks/update_cache', methods=['GET'])
 def update_cache():
     """Periodic cache update."""
-    timeout = 60
+    timeout = 60  # avoid GAE request limits (DeadlineExceededError)
+                  # NOTE: actually cron jobs have a 10 min limit, but there
+                  # is a possibility that if you hit the task url directly it
+                  # will think it's not a cron job and impose the regular
+                  # limit?
 
     t0 = time.time()
 
@@ -97,7 +113,17 @@ def update_cache():
                 len(all_thread_nos), len(all_img_filenames))
     logger.info("Total time %s", time.time() - t0)
 
-    memcache.set(key='a:images', value=all_img_filenames)
+    # clear all old stuff
+    old_pt = PickledThing.get_by_id(a_images_key)
+    if old_pt:
+        old_pt.key.delete()
+
+    pt = api.PickledThing(name=a_images_key, thing=all_img_filenames,
+                          id=a_images_key)
+    pt_key = pt.put()
+    logger.info("Saved in Datastore under key: %s", pt_key)
+
+    # memcache.set(key='a:images', value=all_img_filenames)
 
     return "a okay"
 
@@ -118,10 +144,9 @@ def listen():
     if msg:
         chat_id = msg['chat']['id']
         text = msg.get('text')  # TODO: is optional!!
-        cmd = ''
         has_cmd = api.is_command(msg.get('text', ''))
 
-        if len(has_cmd) > 0:
+        if has_cmd:
             logger.debug(has_cmd)
             cmd = has_cmd[0]
 
@@ -143,10 +168,17 @@ def listen():
                 global LAST_4CHAN_API_CALL_TIME
                 now = time.time()
 
-                imgs = memcache.get('a:images')
-                if not imgs:
-                    logger.error("Cache empty for a:images")
-                    return "No images", 404
+                pt = PickledThing.get_by_id(a_images_key)
+                if not pt:
+                    logger.error("No entry found in Datastore for key: %s",
+                                 a_images_key)
+                    return "No images"
+                imgs = pt.thing
+
+                # imgs = memcache.get('a:images')
+                #if not imgs:
+                #    logger.error("Cache empty for a:images")
+                #    return "No images"
 
                 if now - LAST_4CHAN_API_CALL_TIME < 1:
                     api.send_message(chat_id, "pls be gentle on api")
@@ -170,9 +202,7 @@ def listen():
                     LAST_4CHAN_API_CALL_TIME = now
 
             elif cmd == 'sakurafish':
-                api.send_message(chat_id,
-                                 "https://data.archive.moe/board/a/image/1434/"
-                                 "39/1434397984867.jpg")
+                api.send_message(chat_id, sakurafish_url)
 
             elif cmd == 'help':
                 api.send_message(
@@ -180,7 +210,7 @@ def listen():
                              " for now)\n/sakurafish: sakurafish")
 
         # do not echo commands
-        if ECHO and not cmd:
+        if ECHO and text and not has_cmd:
             resp = api.send_message(chat_id, text)
             logger.debug("Echo result: %s", resp)
 

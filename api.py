@@ -5,9 +5,11 @@ import urllib2
 # import requests  # some weird shit with SSL when using requests, strangely
                    # enough urllib and urllib2 seem to work fine...
 
+from google.appengine.ext import ndb
+
 logger = logging.getLogger(__name__)
 
-# telegram bot api
+# Telegram bot api
 TOKEN = "113582136:AAF2WHjR7BvoTE_jhP50x05hTp94B5MerwE"
 BASE_URL = "https://api.telegram.org/bot" + TOKEN
 SENDMESSAGE_URL = BASE_URL + '/sendMessage'
@@ -21,6 +23,12 @@ posts_url = lambda board, thread_no: _posts_url.format(board=board,
                                                        thread_no=thread_no)
 img_url = lambda board, imgname: _images_url.format(board=board,
                                                     imgname=imgname)
+
+
+class PickledThing(ndb.Model):
+    """Just store one Python thing with pickle"""
+    name = ndb.StringProperty()
+    thing = ndb.PickleProperty(compressed=False)
 
 
 def get_updates(form):
